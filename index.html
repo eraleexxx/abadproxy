@@ -495,7 +495,7 @@
             function processURL(url) {
                 // Si parece una búsqueda (sin http, www o puntos), buscar en DuckDuckGo
                 if (!url.includes('.') && !url.startsWith('http')) {
-                    return `https://duckduckgo.com/?q=${encodeURIComponent(url)}`;
+                    return `https://wiby.me/?q=${encodeURIComponent(url)}`;
                 }
                 
                 // Agregar https:// si no lo tiene
