@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProxyFrame - Visualizador Web</title>
+    <style>
+        :root {
+            --primary: #8e44ad;
+            --secondary: #3498db;
+            --accent: #1abc9c;
+            --background: #10151f;
+            --card: #1a202c;
+            --text: #f1f1f1;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        .header {
+            padding: 1.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 10;
+            transition: all 0.5s ease;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            animation: fadeIn 1s ease-out, float 6s ease-in-out infinite;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            text-align: center;
+            opacity: 0.8;
+            animation: fadeIn 1.5s ease-out;
+        }
+
+        .search-container {
+            max-width: 700px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+            position: relative;
+            z-index: 5;
+            animation: slideUp 0.8s ease-out;
+        }
+
+        .search-box {
+            display: flex;
+            background: var(--card);
+            border-radius: 50px;
+            padding: 0.5rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .search-box::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to right,
+                transparent,
+                rgba(255, 255, 255, 0.1),
+                transparent
+            );
+            transform: rotate(45deg);
+            animation: shine 3s infinite;
+        }
+
+        .search-box:focus-within {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--accent);
+        }
+
+        #url-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 0.8rem 1.2rem;
+            font-size: 1.1rem;
+            color: var(--text);
+            outline: none;
+        }
+
+        #url-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .navigation-btn {
+            background: linear-gradient(135deg, var(--accent), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 0.8rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .navigation-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(26, 188, 156, 0.4);
+        }
+
+        .navigation-btn:active {
+            transform: translateY(0);
+        }
+
+        .control-panel {
+            display: flex;
+            gap: 0.8rem;
+            margin-top: 1rem;
+            justify-content: center;
+            animation: fadeIn 2s ease-out;
+        }
+
+        .frame-container {
+            flex: 1;
+            margin: 0 1.5rem 1.5rem;
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--card);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            min-height: 500px;
+            animation: fadeIn 1.2s ease-out;
+            transition: all 0.5s ease;
+        }
+
+        #frame-display {
+            width: 100%;
+            height: 100%;
+            min-height: 500px;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            z-index: 1000;
+            border-radius: 0;
+        }
+
+        .fullscreen #frame-display {
+            height: 100vh;
+        }
+
+        .icon {
+            display: inline-block;
+            width: 1.2rem;
+            height: 1.2rem;
+            fill: currentColor;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 32, 44, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top: 5px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .show-loading {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .floating-bubbles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .bubble {
+            position: absolute;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            opacity: 0.1;
+            animation: float-up var(--duration, 15s) ease-in infinite;
+            bottom: -50px;
+            left: var(--position, 50%);
+            width: var(--size, 50px);
+            height: var(--size, 50px);
+        }
+
+        .current-url {
+            padding: 0.5rem 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            text-align: center;
+            word-break: break-all;
+            opacity: 0.7;
+        }
+
+        .error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(220, 53, 69, 0.9);
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 80%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 30;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .error-message h3 {
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+        }
+
+        .error-message p {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .exit-fullscreen-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            background: rgba(26, 188, 156, 0.8);
+            border: none;
+            color: white;
+            padding: 0.8rem;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+            transition: all 0.3s ease;
+        }
+
+        .exit-fullscreen-btn:hover {
+            transform: scale(1.1);
+            background: rgba(26, 188, 156, 1);
+        }
+
+        @keyframes shine {
+            0% {
+                left: -100%;
+            }
+            20% {
+                left: 100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-15px);
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes float-up {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 0.1;
+            }
+            100% {
+                transform: translateY(-1500px) scale(2);
+                opacity: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 1.8rem;
+            }
+            
+            .control-panel {
+                flex-wrap: wrap;
+            }
+            
+            .navigation-btn {
+                padding: 0.7rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="floating-bubbles">
+        <div class="bubble" style="--size: 80px; --position: 10%; --duration: 20s;"></div>
+        <div class="bubble" style="--size: 40px; --position: 20%; --duration: 15s;"></div>
+        <div class="bubble" style="--size: 60px; --position: 30%; --duration: 25s;"></div>
+        <div class="bubble" style="--size: 30px; --position: 40%; --duration: 18s;"></div>
+        <div class="bubble" style="--size: 70px; --position: 65%; --duration: 22s;"></div>
+        <div class="bubble" style="--size: 35px; --position: 80%; --duration: 16s;"></div>
+        <div class="bubble" style="--size: 50px; --position: 90%; --duration: 21s;"></div>
+    </div>
+
+    <header class="header">
+        <h1 class="title">ProxyFrame</h1>
+        <p class="subtitle">Navegador Web en iframe con estilo</p>
+    </header>
+
+    <div class="search-container">
+        <div class="search-box">
+            <input type="text" id="url-input" placeholder="Ingresa una URL o busca en la web..." autocomplete="off">
+            <button class="navigation-btn" id="navigate-btn">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z" />
+                </svg>
+                Navegar
+            </button>
+        </div>
+
+        <div id="current-url-display" class="current-url" style="display: none;"></div>
+
+        <div class="control-panel">
+            <button class="navigation-btn" id="fullscreen-btn">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,17V19H5V14H7V17H10Z" />
+                </svg>
+                Pantalla Completa
+            </button>
+            <button class="navigation-btn" id="refresh-btn">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z" />
+                </svg>
+                Refrescar
+            </button>
+            <button class="navigation-btn" id="home-btn">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z" />
+                </svg>
+                Inicio
+            </button>
+        </div>
+    </div>
+
+    <div class="frame-container" id="frame-container">
+        <div class="loading-overlay" id="loading-overlay">
+            <div class="loading-spinner"></div>
+        </div>
+        <iframe id="frame-display" src="about:blank" sandbox="allow-forms allow-popups allow-scripts allow-same-origin"></iframe>
+    </div>
+
+    <!-- Botón flotante para salir de pantalla completa -->
+    <button id="exit-fullscreen-btn" class="exit-fullscreen-btn">
+        <svg class="icon" viewBox="0 0 24 24">
+            <path d="M14,14H19V16H16V19H14V14M5,14H10V19H8V16H5V14M8,5H10V10H5V8H8V5M19,8V10H14V5H16V8H19Z" />
+        </svg>
+    </button>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlInput = document.getElementById('url-input');
+            const navigateBtn = document.getElementById('navigate-btn');
+            const fullscreenBtn = document.getElementById('fullscreen-btn');
+            const exitFullscreenBtn = document.getElementById('exit-fullscreen-btn');
+            const refreshBtn = document.getElementById('refresh-btn');
+            const homeBtn = document.getElementById('home-btn');
+            const frameDisplay = document.getElementById('frame-display');
+            const frameContainer = document.getElementById('frame-container');
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const currentUrlDisplay = document.getElementById('current-url-display');
+            
+            // URL de bienvenida
+            const welcomeURL = 'https://wiby.me/';
+            let currentURL = '';
+            let lastVisitedUrls = [];
+
+            try {
+                // Intentar cargar historial del sessionStorage en lugar de localStorage
+                const savedUrls = sessionStorage.getItem('visitedUrls');
+                if (savedUrls) {
+                    lastVisitedUrls = JSON.parse(savedUrls);
+                }
+            } catch (error) {
+                console.log('No se pudo acceder al almacenamiento. Usando valores predeterminados.');
+            }
+            
+            // Función para procesar y formatear URLs
+            function processURL(url) {
+                // Si parece una búsqueda (sin http, www o puntos), buscar en DuckDuckGo
+                if (!url.includes('.') && !url.startsWith('http')) {
+                    return `https://duckduckgo.com/?q=${encodeURIComponent(url)}`;
+                }
+                
+                // Agregar https:// si no lo tiene
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
+                }
+                
+                try {
+                    // Agregar www. si no tiene www. y no es un subdominio
+                    const urlObj = new URL(url);
+                    const hostParts = urlObj.hostname.split('.');
+                    if (hostParts.length === 2 && !urlObj.hostname.startsWith('www.')) {
+                        urlObj.hostname = 'www.' + urlObj.hostname;
+                        return urlObj.toString();
+                    }
+                    
+                    return url;
+                } catch (e) {
+                    // Si hay un error al procesar la URL, devolver la original
+                    console.error('Error al procesar URL:', e);
+                    return url;
+                }
+            }
+            
+            // Función para mostrar mensajes de error
+            function showError(title, message, duration = 5000) {
+                // Eliminar cualquier mensaje de error existente
+                const existingErrors = document.querySelectorAll('.error-message');
+                existingErrors.forEach(error => error.remove());
+                
+                // Crear nuevo mensaje de error
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.innerHTML = `
+                    <h3>${title}</h3>
+                    <p>${message}</p>
+                    <button class="navigation-btn" onclick="this.parentNode.remove()">Entendido</button>
+                `;
+                
+                frameContainer.appendChild(errorDiv);
+                
+                // Eliminar automáticamente después de la duración especificada
+                if (duration > 0) {
+                    setTimeout(() => {
+                        if (errorDiv.parentNode) {
+                            errorDiv.remove();
+                        }
+                    }, duration);
+                }
+            }
+            
+            // Manejar errores de carga en el iframe
+            frameDisplay.addEventListener('error', function(e) {
+                loadingOverlay.classList.remove('show-loading');
+                showError('Error de carga', 'No se pudo cargar la página. Es posible que el sitio no permita ser mostrado en un iframe por motivos de seguridad.');
+            });
+            
+            // Función para actualizar la navegación
+            function navigate(url) {
+                if (!url) return;
+                
+                try {
+                    const processedURL = processURL(url);
+                    
+                    // Mostrar carga
+                    loadingOverlay.classList.add('show-loading');
+                    
+                    // Actualizar el iframe con sandbox para permitir scripts pero con origen controlado
+                    frameDisplay.src = processedURL;
+                    currentURL = processedURL;
+                    
+                    // Mostrar URL actual
+                    currentUrlDisplay.textContent = `URL: ${processedURL}`;
+                    currentUrlDisplay.style.display = 'block';
+                    
+                    // Guardar en historial (con manejo de errores)
+                    try {
+                        if (!lastVisitedUrls.includes(processedURL)) {
+                            lastVisitedUrls.unshift(processedURL);
+                            // Limitar a 10 URLs
+                            if (lastVisitedUrls.length > 10) {
+                                lastVisitedUrls.pop();
+                            }
+                            sessionStorage.setItem('visitedUrls', JSON.stringify(lastVisitedUrls));
+                        }
+                    } catch (storageError) {
+                        console.log('No se pudo guardar en el almacenamiento. Error:', storageError);
+                    }
+                    
+                } catch (error) {
+                    console.error('Error al procesar la URL:', error);
+                    showError('URL inválida', 'Por favor, verifica la URL e intenta de nuevo.');
+                    loadingOverlay.classList.remove('show-loading');
+                }
+            }
+            
+            // Evento para el botón de navegación
+            navigateBtn.addEventListener('click', function() {
+                navigate(urlInput.value);
+            });
+            
+            // Evento para presionar Enter en el input
+            urlInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    navigate(urlInput.value);
+                }
+            });
+            
+            // Función para alternar pantalla completa con UI mejorada
+            function toggleFullscreen() {
+                frameContainer.classList.toggle('fullscreen');
+                
+                if (frameContainer.classList.contains('fullscreen')) {
+                    // Al entrar en pantalla completa
+                    exitFullscreenBtn.style.display = 'block';
+                    fullscreenBtn.innerHTML = `
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M14,14H19V16H16V19H14V14M5,14H10V19H8V16H5V14M8,5H10V10H5V8H8V5M19,8V10H14V5H16V8H19Z" />
+                        </svg>
+                        Salir P. Completa
+                    `;
+                } else {
+                    // Al salir de pantalla completa
+                    exitFullscreenBtn.style.display = 'none';
+                    fullscreenBtn.innerHTML = `
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,17V19H5V14H7V17H10Z" />
+                        </svg>
+                        Pantalla Completa
+                    `;
+                }
+            }
+            
+            // Evento para el botón de pantalla completa
+            fullscreenBtn.addEventListener('click', toggleFullscreen);
+            
+            // Evento para el botón flotante de salir de pantalla completa
+            exitFullscreenBtn.addEventListener('click', toggleFullscreen);
+            
+            // Evento para el botón de refrescar
+            refreshBtn.addEventListener('click', function() {
+                if (currentURL) {
+                    loadingOverlay.classList.add('show-loading');
+                    frameDisplay.src = currentURL;
+                }
+            });
+            
+            // Evento para el botón de inicio
+            homeBtn.addEventListener('click', function() {
+                loadingOverlay.classList.add('show-loading');
+                frameDisplay.src = welcomeURL;
+                currentURL = welcomeURL;
+                currentUrlDisplay.textContent = `URL: ${welcomeURL}`;
+                currentUrlDisplay.style.display = 'block';
+            });
+            
+            // Cuando el iframe termina de cargar
+            frameDisplay.addEventListener('load', function() {
+                loadingOverlay.classList.remove('show-loading');
+                
+                // Capturar errores de contenido
+                try {
+                    // Verificar si se puede acceder al contenido del iframe
+                    const frameContent = frameDisplay.contentWindow || frameDisplay.contentDocument;
+                    if (!frameContent) {
+                        throw new Error('No se puede acceder al contenido');
+                    }
+                } catch (frameError) {
+                    console.log('La página tiene restricciones de seguridad X-Frame-Options');
+                    // No mostrar el error si ya se está mostrando la página de inicio
+                    if (currentURL !== welcomeURL) {
+                        showError('Restricción de seguridad', 'Este sitio web no permite ser mostrado en un iframe por motivos de seguridad (X-Frame-Options).');
+                    }
+                }
+            });
+            
+            // Detectar tecla ESC para salir de pantalla completa
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && frameContainer.classList.contains('fullscreen')) {
+                    toggleFullscreen();
+                }
+            });
+            
+            // Cargar la última URL o la página de bienvenida
+            let initialUrl = welcomeURL;
+            try {
+                if (lastVisitedUrls.length > 0) {
+                    initialUrl = lastVisitedUrls[0];
+                }
+            } catch (e) {
+                console.log('Error al acceder al historial:', e);
+            }
+            navigate(initialUrl);
+            
+            // Crear burbujas flotantes adicionales cada cierto tiempo
+            setInterval(() => {
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                bubble.style.setProperty('--size', Math.random() * 60 + 20 + 'px');
+                bubble.style.setProperty('--position', Math.random() * 100 + '%');
+                bubble.style.setProperty('--duration', Math.random() * 10 + 15 + 's');
+                document.querySelector('.floating-bubbles').appendChild(bubble);
+                
+                // Eliminar la burbuja después de la animación
+                setTimeout(() => {
+                    bubble.remove();
+                }, 25000);
+            }, 3000);
+        });
+    </script>
+    <h3>Paginas que funcionan:</h3>
+    <p>https://playhop.com/es (juegos)</p>
+    <p>wiby.me (eplorador)</p>
+</body>
+</html>
